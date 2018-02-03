@@ -1,0 +1,580 @@
+package newjohn.com.dzcj.aty;
+
+import android.annotation.SuppressLint;
+import android.graphics.drawable.Drawable;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.gson.Gson;
+
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import newjohn.com.dzcj.Global;
+import newjohn.com.dzcj.R;
+import newjohn.com.dzcj.bean.AlertBean;
+import newjohn.com.dzcj.bean.DeviceDataBean;
+import newjohn.com.dzcj.listviewscroll.AutoListView;
+import newjohn.com.dzcj.listviewscroll.CHScrollView;
+import newjohn.com.dzcj.listviewscroll.ListViewScrollAdapter;
+import newjohn.com.dzcj.ui.CustomDatePicker;
+import newjohn.com.dzcj.ui.SpinerPopWindow;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
+
+public class AlertActivity extends BaseActivity implements  AutoListView.OnRefreshListener, AutoListView.OnLoadListener, AdapterView.OnItemClickListener {
+    String TAG=AlertActivity.class.getName();
+    private AutoListView lstv1;
+    private CHScrollView headerScroll1;
+    List<Map<String, String>> list = new ArrayList<Map<String, String>>();//
+    private ListViewScrollAdapter adapter1; //表格的适配器
+    private CustomDatePicker customDatePicker1, customDatePicker2;
+
+
+    private OkHttpClient okHttpClient;
+    private String start_time="2017-11-14 12:00:00";
+    private String end_time="";
+    private int page=1;
+    private int pageSize=20;
+    private String deviceNum="null";
+    private  String area="null";
+
+    private String[] devicesList=null;
+    ArrayList<String> dl;
+
+    private Gson gson=new Gson();
+    DeviceDataBean deviceDataBean;
+    AlertBean alertBean;
+
+
+    private Toolbar toolbar;
+    @BindView(R.id.start_alert)
+    Button start;
+    @BindView(R.id.end_alert)
+    Button end;
+
+
+
+    @BindView(R.id.search_alert)
+    ImageView searchButton;
+
+    LinearLayout linearLayoutwait;
+    private SpinerPopWindow<String> mSpinerPopWindow;
+    private SpinerPopWindow<String> mSpinerPopWindow1;
+
+    private TextView deviceTv;
+    private TextView projectTv;
+
+    private String deviceCode="";
+    private String projectId="";
+
+
+    @SuppressLint("HandlerLeak")
+    private Handler handler = new Handler() {
+        @SuppressWarnings("unchecked")
+        public void handleMessage(Message msg) {
+            linearLayoutwait.setVisibility(View.GONE);
+            List<Map<String, String>> result = (List<Map<String, String>>) msg.obj;
+            switch (msg.what) {
+                case AutoListView.REFRESH:
+                    lstv1.onRefreshComplete();
+                    list.clear();
+                    list.addAll(result);
+                    break;
+                case AutoListView.LOAD:
+                    lstv1.onLoadComplete();
+                    list.addAll(result);
+                    break;
+            }
+            lstv1.setResultSize(result.size());
+            adapter1.notifyDataSetChanged();
+        };
+    };
+
+
+
+
+
+    /**
+     * 监听popupwindow取消
+     */
+    private PopupWindow.OnDismissListener dismissListener=new PopupWindow.OnDismissListener() {
+        @Override
+        public void onDismiss() {
+            setTextImage(R.drawable.x,deviceTv);
+            setTextImage(R.drawable.x,projectTv);
+        }
+    };
+
+    /**
+     * popupwindow显示的ListView的item点击事件
+     */
+    private AdapterView.OnItemClickListener itemClickListener = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position,long id) {
+            mSpinerPopWindow.dismiss();
+            deviceTv.setText(Global.deviceNames.get(position));
+            deviceCode=Global.deviceCodes.get(position);
+            Toast.makeText(AlertActivity.this, "点击了:" + Global.deviceNames.get(position),Toast.LENGTH_LONG).show();
+        }
+    };
+
+    private AdapterView.OnItemClickListener itemClickListener1 = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position,long id) {
+            mSpinerPopWindow1.dismiss();
+            projectTv.setText(Global.projectNames.get(position));
+            projectId=Global.projectIds.get(position);
+            Toast.makeText(AlertActivity.this, "点击了g:" + Global.projectNames.get(position),Toast.LENGTH_LONG).show();
+        }
+    };
+    /**
+     * 显示PopupWindow
+     */
+    private View.OnClickListener clickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()) {
+                case R.id.device_alert:
+                    mSpinerPopWindow.setWidth(deviceTv.getWidth());
+                    mSpinerPopWindow.showAsDropDown(deviceTv);
+                    setTextImage(R.drawable.s,deviceTv);
+                    break;
+                case R.id.project_alert:
+                    mSpinerPopWindow1.setWidth(projectTv.getWidth());
+                    mSpinerPopWindow1.showAsDropDown(projectTv);
+                    setTextImage(R.drawable.s,projectTv);
+                    break;
+            }
+        }
+    };
+
+    /**
+     * 给TextView右边设置图片
+     * @param resId
+     */
+    private void setTextImage(int resId,TextView textView) {
+        Drawable drawable = getResources().getDrawable(resId);
+        drawable.setBounds(0, 0, drawable.getMinimumWidth(),drawable.getMinimumHeight());// 必须设置图片大小，否则不显示
+        textView.setCompoundDrawables(null, null, drawable, null);
+    }
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_alert);
+        linearLayoutwait=findViewById(R.id.hwait_alert);
+        okHttpClient=new OkHttpClient();
+        ButterKnife.bind(this);
+        initView();
+        initData();
+        setTime();
+        search();
+
+
+
+
+    }
+
+
+    private void initView() {
+        toolbar = findViewById(R.id.toolbar_alert);
+
+
+        //设置导航图标要在setSupportActionBar方法之后
+        setSupportActionBar(toolbar);
+
+
+        headerScroll1 = (CHScrollView) findViewById(R.id.item_scroll_title_alert);
+        CHScrollView.CHScrollViewHelper.mHScrollViews.clear();
+
+
+        CHScrollView.CHScrollViewHelper.mHScrollViews.add(headerScroll1);
+        lstv1 = (AutoListView) findViewById(R.id.scroll_list_alert);
+        adapter1 = new ListViewScrollAdapter(this, list, R.layout.auto_listview_item_alert,
+                new String[]{"deviceName", "projectName", "realHeight", "heightDifference", "temperature", "pressure","alarmTime"},
+                new int[]{R.id.item_title_alert, R.id.item_data1_alert, R.id.item_data2_alert, R.id.item_data3_alert, R.id.item_data4_alert, R.id.item_data5_alert,R.id.item_data6_alert},
+                R.id.item_scroll_alert, lstv1);
+
+        lstv1.setAdapter(adapter1);
+        lstv1.setOnRefreshListener(this);
+        lstv1.setOnLoadListener(this);
+        lstv1.setOnItemClickListener(this);
+
+
+        deviceTv = (TextView) findViewById(R.id.device_alert);
+        deviceTv.setOnClickListener(clickListener);
+        projectTv=findViewById(R.id.project_alert);
+        projectTv.setOnClickListener(clickListener);
+        mSpinerPopWindow = new SpinerPopWindow<String>(this, Global.deviceNames,itemClickListener);
+        mSpinerPopWindow.setOnDismissListener(dismissListener);
+        mSpinerPopWindow1 = new SpinerPopWindow<String>(this, Global.projectNames,itemClickListener1);
+        mSpinerPopWindow1.setOnDismissListener(dismissListener);
+
+
+    }
+    private void initData() {
+        loadData(AutoListView.REFRESH);
+    }
+
+    private void loadData(final int what) {
+        // 这里模拟从服务器获取数据
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+
+                switch (what){
+                    case AutoListView.REFRESH:
+                        page=1;
+                        SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                        Date date=new Date();
+                        String str=sdf.format(date);
+                        Log.i(TAG, "onCreate: "+"time"+str);
+                        end_time=str;
+
+                        RequestBody requestBody=new FormBody.Builder()
+//                                .add("projectId", projectId)
+//                                .add("deviceCode",deviceCode)
+//                                .add("beginDate",start_time)
+//                                .add("endDate",end_time)
+                                .add("pageNo",page+"")
+                                .add("pageSize",pageSize+"")
+                                .build();
+                        Log.i(TAG, "onClick-refresh: "+projectId+"-"+deviceCode+"-"+start_time+"-"+end_time+"-"+page);
+
+                        final Request request=new Request.Builder()
+                                .url("http://183.66.64.47:8090/api/common/devicAlarmData")
+                                .post(requestBody)
+                                .build();
+                        okHttpClient.newCall(request).enqueue(new Callback() {
+                            @Override
+                            public void onFailure(Call call, IOException e) {
+                                Log.i(TAG, "onFailure: "+e.toString());
+
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        lstv1.onRefreshComplete();
+                                        lstv1.setResultSize(0);
+                                        adapter1.notifyDataSetChanged();
+                                        Toast.makeText(AlertActivity.this, "检查网络！", Toast.LENGTH_SHORT).show();
+
+
+                                    }
+                                });
+
+                            }
+
+                            @Override
+                            public void onResponse(Call call, Response response) throws IOException {
+                                String str=response.body().string();
+
+                                Log.i(TAG, "onResponse: "+str);
+
+
+                                alertBean=gson.fromJson(str,AlertBean.class);
+                                List<Map<String, String>> result = new ArrayList<Map<String, String>>();
+                                Map<String, String> data = null;
+
+                                List<AlertBean.List> alerts=alertBean.getResult().getList();
+//
+                                for (int i = 0; i < alerts.size(); i++) {
+
+                                    data = new HashMap<String, String>();
+                                    data.put("deviceName", alerts.get(i).getDevice().getName());
+                                    data.put("alarmTime", alerts.get(i).getAlarmTime());
+                                    data.put("realHeight", alerts.get(i).getRealHeight());
+                                    data.put("heightDifference",alerts.get(i).getHeightDifference());
+                                    data.put("temperature",alerts.get(i).getTemperature());
+                                    data.put("pressure",alerts.get(i).getPressure());
+                                    data.put("projectName",alerts.get(i).getProject().getProjectName());
+
+
+                                    result.add(data);
+                                }
+
+                                Message msg = handler.obtainMessage();
+                                msg.what = what;
+                                msg.obj = result;
+                                handler.sendMessage(msg);
+                            }
+                        });
+
+                        break;
+                    case AutoListView.LOAD:
+                        page++;
+                        RequestBody requestBody1=new FormBody.Builder()
+//                                .add("projectId", projectId)
+//                                .add("deviceCode",deviceCode)
+//                                .add("beginDate",start_time)
+//                                .add("endDate",end_time)
+                                .add("pageNo",page+"")
+                                .add("pageSize",pageSize+"")
+                                .build();
+                        Log.i(TAG, "onClick-load: "+projectId+"-"+deviceCode+"-"+start_time+"-"+end_time+"-"+page);
+
+                        final Request request1=new Request.Builder()
+                                .url("http://183.66.64.47:8090/api/common/devicAlarmData")
+                                .post(requestBody1)
+                                .build();
+
+                        okHttpClient.newCall(request1).enqueue(new Callback() {
+                            @Override
+                            public void onFailure(Call call, IOException e) {
+                                Log.i(TAG, "onFailure1: "+e.toString());
+                                page--;
+                               runOnUiThread(new Runnable() {
+                                   @Override
+                                   public void run() {
+                                       lstv1.onRefreshComplete();
+                                       lstv1.setResultSize(0);
+                                       adapter1.notifyDataSetChanged();
+                                       Toast.makeText(AlertActivity.this, "检查网络！", Toast.LENGTH_SHORT).show();
+                                   }
+                               });
+
+                            }
+
+                            @Override
+                            public void onResponse(Call call, Response response) throws IOException {
+                                String str=response.body().string();
+
+                                Log.i(TAG, "onResponse: "+str);
+
+
+                                alertBean=gson.fromJson(str,AlertBean.class);
+                                List<Map<String, String>> result = new ArrayList<Map<String, String>>();
+                                Map<String, String> data = null;
+
+                                List<AlertBean.List> alerts=alertBean.getResult().getList();
+//
+                                for (int i = 0; i < alerts.size(); i++) {
+
+                                    data = new HashMap<String, String>();
+                                    data.put("deviceName", alerts.get(i).getDevice().getName());
+                                    data.put("alarmTime", alerts.get(i).getAlarmTime());
+                                    data.put("realHeight", alerts.get(i).getRealHeight());
+                                    data.put("heightDifference",alerts.get(i).getHeightDifference());
+                                    data.put("temperature",alerts.get(i).getTemperature());
+                                    data.put("pressure",alerts.get(i).getPressure());
+                                    data.put("projectName",alerts.get(i).getProject().getProjectName());
+
+
+                                    result.add(data);
+                                }
+
+                                Message msg = handler.obtainMessage();
+                                msg.what = what;
+                                msg.obj = result;
+                                handler.sendMessage(msg);
+
+                            }
+                        });
+                        break;
+                }
+
+
+
+
+
+            }
+        }).start();
+    }
+
+    /**
+     * 重写AutoListView.OnRefreshListener, AutoListView.OnLoadListener, AdapterView.OnItemClickListener的
+     *  onRefresh()、onLoad()、onItemClick()方法，实现下拉刷新，加载更多，表格item点击事件
+     */
+
+    @Override
+    public void onRefresh() {
+        loadData(AutoListView.REFRESH);
+    }
+
+    @Override
+    public void onLoad() {
+        loadData(AutoListView.LOAD);
+    }
+
+
+
+    @Override
+    public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+        try {
+            TextView textView = (TextView) adapterView.findViewById(R.id.item_data2);
+
+            Toast.makeText(this, "你点击了：" + textView.getText(), Toast.LENGTH_SHORT).show();
+        } catch (Exception ex) {
+
+        }
+    }
+
+
+    public void setTime(){
+        Calendar cal= Calendar.getInstance();
+        final int year = cal.get(Calendar.YEAR);       //获取年月日时分秒
+        Log.i("wxy","year"+year);
+        final int month = cal.get(Calendar.MONTH);   //获取到的月份是从0开始计数
+        final int day = cal.get(Calendar.DAY_OF_MONTH);
+
+        start.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA);
+                String now = sdf.format(new Date());
+
+
+
+                customDatePicker1 = new CustomDatePicker(AlertActivity.this, new CustomDatePicker.ResultHandler() {
+                    @Override
+                    public void handle(String time) { // 回调接口，获得选中的时间
+                        start.setText(time);
+                        start_time=time+":00";
+                    }
+                }, "2010-01-01 00:00", now); // 初始化日期格式请用：yyyy-MM-dd HH:mm，否则不能正常运行
+                customDatePicker1.showSpecificTime(true); // 不显示时和分
+                customDatePicker1.setIsLoop(false); // 不允许循环滚动
+                customDatePicker1.show(now);
+            }
+        });
+
+
+        end.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA);
+                String now = sdf.format(new Date());
+                Toast.makeText(AlertActivity.this, "lllllll", Toast.LENGTH_SHORT).show();
+
+
+                customDatePicker2 = new CustomDatePicker(AlertActivity.this, new CustomDatePicker.ResultHandler() {
+                    @Override
+                    public void handle(String time) { // 回调接口，获得选中的时间
+                      end_time=time+":00";
+                        end.setText(time);
+                    }
+                }, "2010-01-01 00:00", now); // 初始化日期格式请用：yyyy-MM-dd HH:mm，否则不能正常运行
+                customDatePicker2.showSpecificTime(true); // 显示时和分
+                customDatePicker2.setIsLoop(false); // 不允许循环滚动
+                customDatePicker2.show(now);
+            }
+        });
+    }
+
+
+
+
+    public void search(){
+        searchButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                linearLayoutwait.setVisibility(View.VISIBLE);
+                page=1;
+
+                RequestBody requestBody=new FormBody.Builder()
+//                                .add("projectId", projectId)
+//                                .add("deviceCode",deviceCode)
+//                                .add("beginDate",start_time)
+//                                .add("endDate",end_time)
+                        .add("pageNo",page+"")
+                        .add("pageSize",pageSize+"")
+                        .build();
+                Log.i(TAG, "onClick-search: "+projectId+"-"+deviceCode+"-"+start_time+"-"+end_time+"-"+page);
+
+                final Request request=new Request.Builder()
+                        .url("http://183.66.64.47:8090/api/common/devicAlarmData")
+                        .post(requestBody)
+                        .build();
+                okHttpClient.newCall(request).enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        Log.i(TAG, "onFailure: "+e.toString());
+
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                lstv1.onRefreshComplete();
+                                lstv1.setResultSize(0);
+                                adapter1.notifyDataSetChanged();
+                                Toast.makeText(AlertActivity.this, "检查网络！", Toast.LENGTH_SHORT).show();
+
+
+                            }
+                        });
+
+                    }
+
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        String str=response.body().string();
+
+                        Log.i(TAG, "onResponse: "+str);
+
+
+                        alertBean=gson.fromJson(str,AlertBean.class);
+                        List<Map<String, String>> result = new ArrayList<Map<String, String>>();
+                        Map<String, String> data = null;
+
+                        List<AlertBean.List> alerts=alertBean.getResult().getList();
+//
+                        for (int i = 0; i < alerts.size(); i++) {
+
+                            data = new HashMap<String, String>();
+                            data.put("deviceName", alerts.get(i).getDevice().getName());
+                            data.put("alarmTime", alerts.get(i).getAlarmTime());
+                            data.put("realHeight", alerts.get(i).getRealHeight());
+                            data.put("heightDifference",alerts.get(i).getHeightDifference());
+                            data.put("temperature",alerts.get(i).getTemperature());
+                            data.put("pressure",alerts.get(i).getPressure());
+                            data.put("projectName",alerts.get(i).getProject().getProjectName());
+
+
+                            result.add(data);
+                        }
+
+                        Message msg = handler.obtainMessage();
+                        msg.what= 0;
+                        msg.obj = result;
+                        handler.sendMessage(msg);
+                    }
+                });
+
+            }
+        });
+    }
+
+
+
+
+
+
+
+}

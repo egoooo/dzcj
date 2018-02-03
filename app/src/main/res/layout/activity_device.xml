@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+
+
+    >
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <android.support.v7.widget.Toolbar
+            android:id="@+id/toolbar_d"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/colorPrimary"
+
+            app:title=" ">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginBottom="3dp"
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="10dp"
+                android:gravity="center_vertical">
+
+
+
+                <TextView
+                    android:id="@+id/device_d"
+                    android:layout_width="100dp"
+                    android:layout_height="30dp"
+                    android:layout_marginRight="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/btn_bg_1"
+                    android:paddingRight="10dp"
+                    android:drawableRight="@drawable/x"
+                    android:gravity="center"
+
+                    android:text="请选择设备"
+                    android:textSize="10dp" />
+
+
+
+                <LinearLayout
+                    android:layout_width="50dp"
+                    android:layout_height="30dp"
+                    android:background="@drawable/btn_bg_1"
+
+                    android:gravity="center">
+
+                    <ImageView
+                        android:id="@+id/search_d"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:background="@drawable/button_background" />
+                </LinearLayout>
+
+
+            </LinearLayout>
+        </android.support.v7.widget.Toolbar>
+
+
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:background="#ccc"
+        android:minHeight="40dip"
+        android:orientation="horizontal" >
+
+        <TextView
+
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_weight="3"
+            android:gravity="center"
+            android:text="设备名称"
+            android:textColor="#850" />
+
+        <newjohn.com.dzcj.listviewscroll.CHScrollView
+            android:id="@+id/item_scroll_title_d"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_weight="1"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:orientation="horizontal">
+
+
+                <TextView
+                    android:layout_width="100dip"
+                    android:layout_height="fill_parent"
+                    android:gravity="center"
+                    android:text="项目类型"
+                    android:textColor="#850" />
+
+                <TextView
+                    android:layout_width="100dip"
+                    android:layout_height="fill_parent"
+                    android:gravity="center"
+                    android:text="设备编码"
+                    android:textColor="#850" />
+
+                <TextView
+
+                    android:layout_width="100dip"
+                    android:layout_height="fill_parent"
+                    android:gravity="center"
+                    android:text="所属单位"
+                    android:textColor="#850" />
+
+
+                <TextView
+                    android:layout_width="100dip"
+                    android:layout_height="fill_parent"
+                    android:gravity="center"
+                    android:text="所属监测点"
+                    android:textColor="#850" />
+
+
+            </LinearLayout>
+        </newjohn.com.dzcj.listviewscroll.CHScrollView>>
+
+    </LinearLayout>
+
+        <newjohn.com.dzcj.listviewscroll.AutoListView
+            android:id="@+id/scroll_list_d"
+            android:layout_width="match_parent"
+            android:layout_height="fill_parent"
+            android:cacheColorHint="@android:color/transparent" />
+
+</LinearLayout>
+
+
+    <LinearLayout
+
+        android:id="@+id/hwait_d"
+        android:layout_width="wrap_content"
+        android:layout_height="50dp"
+        android:layout_gravity="center"
+        android:background="@drawable/btn_bg_1"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:layout_marginLeft="20dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:layout_marginLeft="20dp"
+            android:layout_marginRight="20dp"
+            android:gravity="center"
+            android:text="加载中..."
+            android:textSize="15sp" />
+    </LinearLayout>
+</FrameLayout>
